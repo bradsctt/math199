@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <!-- UC brand fonts (Chronicle, Söhne) are licensed via UC Marketing; these are the closest free equivalents -->
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,700;0,8..60,900;1,8..60,300&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false})"></script>
 <style>
 :root {
   /* UC official digital palette on LIGHT theme, mirrors the Brand Spec layout:
@@ -364,9 +368,11 @@ ul.section-intro strong {
 }
 
 .matrix-val.highlighted {
-  border-color: var(--cyan);
-  background: rgba(204,0,17,0.12);
-  color: var(--cyan);
+  border: 3px solid var(--cyan);
+  background: rgba(204,0,17,0.20);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(204,0,17,0.5);
 }
 
 .matrix-val.kernel-pos { color: var(--cyan); }
@@ -535,14 +541,12 @@ ul.section-intro strong {
 .bp-step-content { flex: 1; }
 .bp-step-title { font-weight: 500; font-size: 0.9rem; margin-bottom: 0.25rem; }
 .bp-step-eq {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.75rem;
   color: var(--muted);
   background: var(--card);
-  padding: 0.4rem 0.75rem;
+  padding: 0.5rem 1rem;
   border-radius: 6px;
   margin-top: 0.4rem;
-  display: inline-block;
+  display: block;
 }
 
 .bp-step.active .bp-step-eq { color: var(--cyan); }
@@ -873,12 +877,10 @@ nav {
 .section-notes li:last-child { margin-bottom: 0; }
 
 .math-block {
-  font-family: 'DM Mono', monospace;
   background: var(--panel);
   border-radius: 6px;
   padding: 0.75rem 1rem;
   margin: 0.5rem 0;
-  font-size: 0.8rem;
   line-height: 1.8;
   color: var(--yellow);
 }
@@ -889,6 +891,7 @@ nav {
   grid-template-columns: 1fr auto 1fr;
   gap: 1.5rem;
   align-items: center;
+  justify-items: center;
   margin: 1.5rem 0;
 }
 
@@ -983,11 +986,11 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 .answer-eq {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.8rem;
   color: var(--muted);
   flex: 1;
   min-width: 200px;
+  display: flex;
+  align-items: center;
 }
 
 .answer-input {
@@ -1293,26 +1296,27 @@ input[type=range]::-webkit-slider-thumb {
 
 <!-- ══════════════════════════════════════════════ SECTION 2: FILTERS -->
 <section class="section" id="section-filters">
-  <div class="section-label">Part 2: Filters & Convolution</div>
-  <h2>Finding edges:<br>The Sobel filter</h2>
+  <div class="section-label">Part 2: Filters &amp; Convolution</div>
+  <h2>Image filters:<br>Edges, blur &amp; morphology</h2>
   <p class="section-intro" style="max-width:none;">
-    To find where one object ends and another begins, a computer slides a small grid of numbers (called a <em>kernel</em>) across the image, multiplying and adding as it goes.
+    A filter transforms each pixel by combining it with its neighbours. Different filter families do very different things: <strong>edge-detection filters</strong> (like Sobel) highlight where brightness changes sharply; <strong>smoothing filters</strong> (Gaussian blur) reduce noise by averaging neighbours; <strong>morphological filters</strong> (erosion, dilation) reshape the regions of an image by expanding or shrinking them.
   </p>
 
   <div class="card">
     <div class="card-label">Try different filters on an image</div>
     <div class="filter-selector">
-      <button class="filter-btn active" onclick="applyFilter('sobel_x', this)">Sobel X (vertical edges)</button>
-      <button class="filter-btn" onclick="applyFilter('sobel_y', this)">Sobel Y (horizontal edges)</button>
+      <button class="filter-btn active" onclick="applyFilter('sobel_x', this)">Sobel X</button>
+      <button class="filter-btn" onclick="applyFilter('sobel_y', this)">Sobel Y</button>
       <button class="filter-btn" onclick="applyFilter('sobel_both', this)">Sobel combined</button>
+      <button class="filter-btn" onclick="applyFilter('blur', this)">Gaussian blur</button>
       <button class="filter-btn" onclick="applyFilter('sharpen', this)">Sharpen</button>
-      <button class="filter-btn" onclick="applyFilter('blur', this)">Blur</button>
-      <button class="filter-btn" onclick="applyFilter('none', this)">Original</button>
+      <button class="filter-btn" onclick="applyFilter('erosion', this)">Erosion</button>
+      <button class="filter-btn" onclick="applyFilter('dilation', this)">Dilation</button>
     </div>
 
     <div class="filter-demo">
       <div>
-        <div class="grid-label">Original</div>
+        <div class="grid-label" id="orig-label">Original</div>
         <canvas id="img-canvas-original" width="220" height="180"></canvas>
       </div>
       <div class="arrow-symbol">→</div>
@@ -1322,8 +1326,8 @@ input[type=range]::-webkit-slider-thumb {
       </div>
     </div>
 
-    <p style="font-size:0.78rem; color:var(--muted); margin-top:0.75rem;">
-      Sobel X highlights vertical edges. Bright pixels mark a strong left-to-right change in brightness.
+    <p id="filter-description" style="font-size:0.78rem; color:var(--muted); margin-top:0.75rem;">
+      <strong>Sobel X</strong> detects vertical edges by computing the horizontal gradient \(\partial I/\partial x\). Bright pixels mark a strong left-to-right change in brightness.
     </p>
   </div>
 
@@ -1333,7 +1337,7 @@ input[type=range]::-webkit-slider-thumb {
       Below is a 5×5 image with a vertical edge down the middle. We'll walk through the <strong style="color:var(--cyan)">first position</strong> step by step, then it's <strong style="color:var(--yellow)">your turn</strong> for the remaining eight. Multiply each patch value by the kernel value in the same spot, then add everything up.
     </p>
 
-    <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start; margin-bottom:1.5rem;">
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; margin-bottom:1.5rem;">
       <div>
         <div class="matrix-title">Full image I (5×5), highlighted patch moves as you step</div>
         <div id="full-image-grid"></div>
@@ -1368,14 +1372,20 @@ input[type=range]::-webkit-slider-thumb {
       The Sobel kernel is nine specific numbers, chosen to approximate the image's rate of change in one direction. Try changing them: can you design a filter that picks out diagonal edges, or one that leaves the image unchanged?
     </p>
 
-    <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start;">
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start; justify-content:center;">
       <div>
         <div class="matrix-title">Your kernel</div>
-        <div class="working-grid" id="custom-kernel-grid" style="margin-top:0.4rem;"></div>
+        <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin-bottom:0.4rem;">
+          <span style="font-size:0.72rem; color:var(--muted);">Size:</span>
+          <button class="filter-btn size-btn" data-size="1" onclick="setCustomKernelSize(1)">1×1</button>
+          <button class="filter-btn size-btn active" data-size="3" onclick="setCustomKernelSize(3)">3×3</button>
+          <button class="filter-btn size-btn" data-size="5" onclick="setCustomKernelSize(5)">5×5</button>
+          <button class="filter-btn size-btn" data-size="7" onclick="setCustomKernelSize(7)">7×7</button>
+        </div>
+        <div class="working-grid" id="custom-kernel-grid"></div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
-          <button class="check-btn" onclick="setCustomKernel([[-1,0,1],[-2,0,2],[-1,0,1]])">Sobel X</button>
-          <button class="check-btn" onclick="setCustomKernel([[0,0,0],[0,1,0],[0,0,0]])">Identity</button>
-          <button class="check-btn" onclick="setCustomKernel([[0,0,0],[0,0,0],[0,0,0]])">All zeros</button>
+          <button class="check-btn" onclick="setCustomKernel([[-1,0,1],[-2,0,2],[-1,0,1]], 3)">Sobel X</button>
+          <button class="check-btn" onclick="setCustomKernelZeros()">All zeros</button>
         </div>
       </div>
       <div style="flex:1; min-width:240px;">
@@ -1385,18 +1395,19 @@ input[type=range]::-webkit-slider-thumb {
     </div>
 
     <div class="computation-box" style="margin-top:1.25rem; border-left-color: var(--yellow);">
-      <span style="color:var(--text)">Until roughly 2012, this was how computer vision worked: engineers designing filters by hand, nine numbers at a time.</span><br>
+      <span style="color:var(--text)">Until roughly 2012, this was how computer vision worked: computer scientists and mathematicians designed filters by hand to perform specific tasksso.</span><br>
       <span style="color:var(--yellow)">Deep learning changed that. Instead of designing filters, we let the network <strong>work out its own numbers</strong> by learning from its mistakes.</span><br>
       <span style="color:var(--text)">The next section shows how that learning works.</span>
     </div>
   </div>
 
   <div class="section-notes">
-    <div class="section-notes-label">The convolution formula</div>
+    <div class="section-notes-label">Convolution and beyond</div>
     <ul>
-      <li>Convolution slides a small kernel (filter) over every position in the image: output[i,j] = Σ_m Σ_n image[i+m, j+n] × kernel[m,n].</li>
-      <li>The Gx Sobel kernel responds strongly to <em>vertical</em> edges because it subtracts the left column from the right column of each patch: Gx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]].</li>
-      <li>Combined edge strength: |Gx| + |Gy| at each pixel.</li>
+      <li><strong>Convolution</strong> slides a kernel over every position: \(O[i,j] = \sum_m \sum_n I[i{+}m,\, j{+}n] \cdot K[m,n]\). All linear filters (Sobel, blur, sharpen) follow this formula — only the kernel numbers change.</li>
+      <li><strong>Sobel edge detection</strong> — \(G_x = [[-1,0,1],\,[-2,0,2],\,[-1,0,1]]\) approximates \(\partial I/\partial x\) (vertical edges); \(G_y\) captures \(\partial I/\partial y\) (horizontal edges). Combined edge magnitude: \(\sqrt{G_x^2 + G_y^2}\) at each pixel.</li>
+      <li><strong>Gaussian blur</strong> — weights follow a 2-D Gaussian bell curve, so nearby pixels contribute more than distant ones. Reduces high-frequency noise while preserving low-frequency structure.</li>
+      <li><strong>Morphological filters</strong> are <em>not</em> convolution — they use min or max over a neighbourhood (the <em>structuring element</em>) instead of a weighted sum. <strong>Erosion</strong>: \(E[i,j] = \min_{(m,n)\in S} I[i{+}m,\, j{+}n]\) — shrinks bright regions. <strong>Dilation</strong>: \(D[i,j] = \max_{(m,n)\in S} I[i{+}m,\, j{+}n]\) — expands them. Erosion then dilation = <em>opening</em> (removes small bright specks); dilation then erosion = <em>closing</em> (fills small holes).</li>
     </ul>
   </div>
 </section>
@@ -1416,16 +1427,67 @@ input[type=range]::-webkit-slider-thumb {
 
   <p class="section-intro" style="margin-bottom:1rem; max-width:none;">But first, let's introduce some terminology:</p>
   <ul class="section-intro" style="margin-top:1.25rem; padding-left:1.2rem; max-width:none;">
-    <li style="margin-bottom:0.6rem;"><strong>Weight</strong>, like w₁ or w₂ below: a number the network multiplies its input by - this performs the same job as the nine numbers in the Sobel kernel above. Training only ever changes these weights (and a similar number called a <strong>bias</strong>, b₁ and b₂), but never the network's structure.</li>
-    <li style="margin-bottom:0.6rem;"><strong>z</strong>: the raw output of a node before anything else is done to it, e.g. z₁ = w₁ × x + b₁. In a real network a nonlinearity (like ReLU) is applied to z to get the node's actual output; this toy example skips that step, so below, h₁ and ŷ turn out to just be z₁ and z₂ renamed.</li>
-    <li style="margin-bottom:0.6rem;"><strong>ŷ</strong> ("y-hat"): the network's prediction, and <strong>y</strong>, the true answer it's trying to match.</li>
-    <li style="margin-bottom:0.6rem;"><strong>Loss</strong>: a single number measuring how wrong ŷ is. Bigger means worse; zero means a perfect prediction.</li>
-    <li style="margin-bottom:0.6rem;"><strong>Gradient</strong>, written ∂L/∂w: the answer to one question about one weight, "if I adjust this weight slightly, does the loss go up or down, and by how much?" That's the number we need for every weight in the network.</li>
-    <li><strong>α</strong> (learning rate): how big a step we take once we know a gradient. This is typically a small number; in the example below we use 0.01.</li>
+    <li style="margin-bottom:0.6rem;"><strong>Weight</strong>, like \(w_1\) or \(w_2\) below: a number the network multiplies its input by - this performs the same job as the nine numbers in the Sobel kernel above. Training only ever changes these weights (and a similar number called a <strong>bias</strong>, \(b_1\) and \(b_2\)), but never the network's structure.</li>
+    <li style="margin-bottom:0.6rem;"><strong>\(z\)</strong>: the raw weighted sum at a node, e.g. \(z_1 = w_1 \times x + b_1\). An <strong>activation function</strong> is then applied to \(z\) to produce the node's output \(h = f(z)\). In the network below we apply a <strong>ReLU</strong> function after the hidden node, so \(h_1 = \text{ReLU}(z_1)\). The output node has no activation (standard for regression), so \(\hat{y} = z_2\).</li>
+    <li style="margin-bottom:0.6rem;"><strong>\(\hat{y}\)</strong> ("y-hat"): the network's prediction, and <strong>\(y\)</strong>, the true answer it's trying to match.</li>
+    <li style="margin-bottom:0.6rem;"><strong>Loss</strong>: a single number measuring how wrong \(\hat{y}\) is. Bigger means worse; zero means a perfect prediction.</li>
+    <li style="margin-bottom:0.6rem;"><strong>Gradient</strong>, written \(\partial L/\partial w\): the answer to one question about one weight, "if I adjust this weight slightly, does the loss go up or down, and by how much?" That's the number we need for every weight in the network.</li>
+    <li><strong>\(\alpha\)</strong> (learning rate): how big a step we take once we know a gradient. This is typically a small number; in the example below we use 0.01.</li>
   </ul>
 
-  <div class="card">
-    <div class="card-label">Tiny network: x=2, w₁=3, w₂=−2, b₁=1, b₂=4, target y=10</div>
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-label">Activation functions: why non-linearity matters</div>
+    <p style="font-size:0.85rem; color:var(--muted); margin-bottom:1.25rem;">
+      Without a non-linear step, any stack of linear layers collapses to a single linear transformation — no matter how deep the network. An activation function \(f\) is applied to each node's raw sum \(z\) before its output is passed forward, giving \(h = f(z)\). This lets deep networks model curves, boundaries, and patterns that no single linear layer could capture.
+    </p>
+
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; justify-content:center; margin-bottom:1.25rem;">
+      <div style="text-align:center; min-width:210px;">
+        <div class="matrix-title">ReLU — used in almost all modern CNNs</div>
+        <canvas id="relu-canvas" width="220" height="155" style="border-radius:8px; border:1px solid var(--border); max-width:100%;"></canvas>
+        <div class="math-block" style="margin-top:0.6rem; font-size:0.85rem;">\(\text{ReLU}(z) = \max(0,\,z)\)</div>
+        <div class="math-block" style="font-size:0.85rem;">\(\text{ReLU}'(z) = \begin{cases}1 & z > 0\\0 & z \leq 0\end{cases}\)</div>
+      </div>
+      <div style="text-align:center; min-width:210px;">
+        <div class="matrix-title">Sigmoid — used for probability outputs</div>
+        <canvas id="sigmoid-canvas" width="220" height="155" style="border-radius:8px; border:1px solid var(--border); max-width:100%;"></canvas>
+        <div class="math-block" style="margin-top:0.6rem; font-size:0.85rem;">\(\sigma(z) = \dfrac{1}{1+e^{-z}}\)</div>
+        <div class="math-block" style="font-size:0.85rem;">\(\sigma'(z) = \sigma(z)\,(1-\sigma(z))\)</div>
+      </div>
+    </div>
+
+    <div style="background:var(--panel); border-radius:8px; padding:1rem 1.25rem; margin-bottom:1.25rem;">
+      <div style="font-size:0.82rem; color:var(--muted); margin-bottom:0.5rem;">
+        Drag to explore — \(z =\) <strong id="act-z-display" style="color:var(--text);">1.0</strong>
+      </div>
+      <input type="range" min="-4" max="4" step="0.1" value="1.0" id="act-slider"
+        style="width:100%; accent-color:var(--cyan);"
+        oninput="updateActDemo(parseFloat(this.value))">
+      <div style="display:flex; gap:2.5rem; flex-wrap:wrap; margin-top:0.75rem; font-size:0.82rem;">
+        <div>
+          <span style="color:var(--muted);">ReLU(z) = </span><strong id="relu-out" style="color:var(--cyan);">1.00</strong>
+          &ensp;
+          <span style="color:var(--muted);">ReLU′(z) = </span><strong id="relu-deriv" style="color:var(--green);">1</strong>
+        </div>
+        <div>
+          <span style="color:var(--muted);">\(\sigma\)(z) = </span><strong id="sig-out" style="color:var(--cyan);">0.731</strong>
+          &ensp;
+          <span style="color:var(--muted);">\(\sigma'\)(z) = </span><strong id="sig-deriv" style="color:var(--green);">0.197</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="computation-box" style="border-left-color:var(--yellow);">
+      <strong style="color:var(--yellow);">Why the derivative is what matters for training:</strong>
+      During backpropagation, each activation contributes its derivative to the chain rule.
+      For ReLU: the derivative is <strong>1</strong> when \(z > 0\) (gradient passes through unchanged) and <strong>0</strong> when \(z \leq 0\) (gradient is blocked entirely — <em>dead neuron</em>).
+      For sigmoid: the derivative peaks at 0.25 when \(z=0\) and shrinks toward 0 at both extremes, causing gradients to vanish across many layers.
+      ReLU avoids this, which is why it dominates in deep networks.
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-label">Tiny network: \(x=2,\; w_1=3,\; w_2=-2,\; b_1=1,\; b_2=4,\;\) target \(y=10\)</div>
 
     <div class="network-diagram" id="bp-network">
       <div class="node node-input" id="bp-node-x">
@@ -1439,7 +1501,7 @@ input[type=range]::-webkit-slider-thumb {
       <div class="node node-hidden" id="bp-node-h1">
         <span>h₁</span>
         <span id="bp-val-h1">?</span>
-        <span style="display:block;font-size:0.65rem;color:var(--muted);">b₁=1</span>
+        <span style="display:block;font-size:0.6rem;color:var(--muted);">b₁=1 · ReLU</span>
       </div>
       <div class="edge" id="bp-edge-2">
         <div class="edge-line"></div>
@@ -1466,11 +1528,11 @@ input[type=range]::-webkit-slider-thumb {
         <div class="bp-step-num">→</div>
         <div class="bp-step-content">
           <div class="bp-step-title">Forward pass: compute the prediction</div>
-          <div class="bp-step-eq">z₁ = w₁ × x + b₁ = 3 × 2 + 1 = 7, so h₁ = 7</div>
-          <div class="bp-step-eq">z₂ = w₂ × h₁ + b₂ = −2 × 7 + 4 = −10, so ŷ = −10</div>
-          <div class="bp-step-eq">Loss L = ½(y − ŷ)² = ½(10 − (−10))² = <strong style="color:var(--red)">200</strong></div>
+          <div class="bp-step-eq">$$z_1 = w_1 \times x + b_1 = 3 \times 2 + 1 = 7,\quad h_1 = \text{ReLU}(z_1) = \max(0,\,7) = 7$$</div>
+          <div class="bp-step-eq">$$z_2 = w_2 \times h_1 + b_2 = -2 \times 7 + 4 = -10,\quad \text{so}\quad \hat{y} = -10$$</div>
+          <div class="bp-step-eq">\(L = \tfrac{1}{2}(y - \hat{y})^2 = \tfrac{1}{2}(10-(-10))^2 =\) <strong style="color:var(--red)">200</strong></div>
           <p style="font-size:0.78rem;color:var(--muted);margin-top:0.4rem;">
-            The target was y=10 and the network predicted ŷ=−10, so L squares that gap (and halves it, a convention that keeps the derivative tidy). A perfect prediction would give L=0.
+            The target was \(y=10\) and the network predicted \(\hat{y}=-10\), so \(L\) squares that gap (and halves it, a convention that keeps the derivative tidy). A perfect prediction would give \(L=0\).
           </p>
         </div>
       </div>
@@ -1478,25 +1540,25 @@ input[type=range]::-webkit-slider-thumb {
       <div class="bp-step" id="bps-1">
         <div class="bp-step-num">←</div>
         <div class="bp-step-content">
-          <div class="bp-step-title">Backward step 1: how sensitive is the loss to ŷ?</div>
+          <div class="bp-step-title">Backward step 1: how sensitive is the loss to \(\hat{y}\)?</div>
           <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
-            Before touching any weight, we first ask: if ŷ itself had been slightly different, how much would L have changed? That sensitivity is ∂L/∂ŷ, the gradient of the loss with respect to the prediction.
+            Before touching any weight, we first ask: if \(\hat{y}\) itself had been slightly different, how much would \(L\) have changed? That sensitivity is \(\partial L/\partial\hat{y}\), the gradient of the loss with respect to the prediction.
           </p>
-          <div class="bp-step-eq">∂L/∂ŷ = −(y − ŷ) = −(10 − (−10)) = <strong style="color:var(--cyan)">−20</strong></div>
-          <p style="font-size:0.78rem;color:var(--muted);margin-top:0.4rem;">This is the starting gradient. Every weight's gradient below is this number, chained through the layers between it and ŷ.</p>
+          <div class="bp-step-eq">\(\dfrac{\partial L}{\partial\hat{y}} = -(y - \hat{y}) = -(10-(-10)) =\) <strong style="color:var(--cyan)">−20</strong></div>
+          <p style="font-size:0.78rem;color:var(--muted);margin-top:0.4rem;">This is the starting gradient. Every weight's gradient below is this number, chained through the layers between it and \(\hat{y}\).</p>
         </div>
       </div>
 
       <div class="bp-step" id="bps-2">
         <div class="bp-step-num">←</div>
         <div class="bp-step-content">
-          <div class="bp-step-title">Backward step 2: the gradient for w₂</div>
+          <div class="bp-step-title">Backward step 2: the gradient for \(w_2\)</div>
           <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;">
-            Chain rule: ∂L/∂w₂ = ∂L/∂ŷ × ∂ŷ/∂z₂ × ∂z₂/∂w₂<br>
-            Since z₂ = w₂·h₁ + b₂, we get ∂z₂/∂w₂ = h₁ = 7. And ∂ŷ/∂z₂ = 1, because ŷ is just z₂ with no activation applied, so nudging z₂ nudges ŷ by exactly the same amount.
+            Chain rule: \(\dfrac{\partial L}{\partial w_2} = \dfrac{\partial L}{\partial\hat{y}} \cdot \dfrac{\partial\hat{y}}{\partial z_2} \cdot \dfrac{\partial z_2}{\partial w_2}\)<br>
+            Since \(z_2 = w_2 \cdot h_1 + b_2\), we get \(\partial z_2/\partial w_2 = h_1 = 7\). And \(\partial\hat{y}/\partial z_2 = 1\) because the output node has no activation (a standard convention for regression), so \(\hat{y} = z_2\) directly.
           </p>
           <div class="answer-row">
-            <span class="answer-eq">∂L/∂w₂ = −20 × 1 × 7 =</span>
+            <span class="answer-eq">\(\partial L/\partial w_2 = -20 \times 1 \times 7 =\)</span>
             <input class="answer-input" id="ans-dw2" type="number" placeholder="?" oninput="checkAnswer('dw2')">
             <span class="answer-feedback" id="fb-dw2"></span>
           </div>
@@ -1507,15 +1569,15 @@ input[type=range]::-webkit-slider-thumb {
       <div class="bp-step" id="bps-3">
         <div class="bp-step-num">←</div>
         <div class="bp-step-content">
-          <div class="bp-step-title">Backward step 3: the gradient for w₁, one layer deeper</div>
+          <div class="bp-step-title">Backward step 3: the gradient for \(w_1\), one layer deeper</div>
           <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;">
-            The chain now passes through w₂ and h₁ to reach w₁:<br>
-            ∂L/∂w₁ = ∂L/∂ŷ × ∂ŷ/∂z₂ × ∂z₂/∂h₁ × ∂h₁/∂z₁ × ∂z₁/∂w₁<br>
-            Each factor: ∂z₂/∂h₁ = w₂ (since z₂ = w₂·h₁ + b₂), ∂h₁/∂z₁ = 1 (no activation, same as before), ∂z₁/∂w₁ = x (since z₁ = w₁·x + b₁).<br>
-            = −20 × 1 × w₂ × 1 × x = −20 × (−2) × 2
+            The chain now passes through \(w_2\) and \(h_1\) to reach \(w_1\):<br>
+            \(\dfrac{\partial L}{\partial w_1} = \dfrac{\partial L}{\partial\hat{y}} \cdot \dfrac{\partial\hat{y}}{\partial z_2} \cdot \dfrac{\partial z_2}{\partial h_1} \cdot \dfrac{\partial h_1}{\partial z_1} \cdot \dfrac{\partial z_1}{\partial w_1}\)<br>
+            Each factor: \(\partial z_2/\partial h_1 = w_2\) (since \(z_2 = w_2 \cdot h_1 + b_2\)), \(\partial h_1/\partial z_1 = \text{ReLU}'(z_1) = 1\) (since \(z_1 = 7 > 0\)), \(\partial z_1/\partial w_1 = x\) (since \(z_1 = w_1 \cdot x + b_1\)).<br>
+            \(= -20 \times 1 \times w_2 \times 1 \times x = -20 \times (-2) \times 2\)
           </p>
           <div class="answer-row">
-            <span class="answer-eq">∂L/∂w₁ = −20 × 1 × (−2) × 1 × 2 =</span>
+            <span class="answer-eq">\(\partial L/\partial w_1 = -20 \times 1 \times (-2) \times 1 \times 2 =\)</span>
             <input class="answer-input" id="ans-dw1" type="number" placeholder="?" oninput="checkAnswer('dw1')">
             <span class="answer-feedback" id="fb-dw1"></span>
           </div>
@@ -1526,11 +1588,11 @@ input[type=range]::-webkit-slider-thumb {
       <div class="bp-step" id="bps-4">
         <div class="bp-step-num">↻</div>
         <div class="bp-step-content">
-          <div class="bp-step-title">Weight update: step downhill with α = 0.01</div>
-          <div class="bp-step-eq">w₂_new = −2 − 0.01 × (−140) = −2 + 1.4 = <strong style="color:var(--green)">−0.6</strong></div>
-          <div class="bp-step-eq">w₁_new = 3 − 0.01 × 80 = 3 − 0.8 = <strong style="color:var(--green)">2.2</strong></div>
+          <div class="bp-step-title">Weight update: step downhill with \(\alpha = 0.01\)</div>
+          <div class="bp-step-eq">\(w_{2,\text{new}} = -2 - 0.01 \times (-140) = -2 + 1.4 =\) <strong style="color:var(--green)">−0.6</strong></div>
+          <div class="bp-step-eq">\(w_{1,\text{new}} = 3 - 0.01 \times 80 = 3 - 0.8 =\) <strong style="color:var(--green)">2.2</strong></div>
           <p style="font-size:0.78rem;color:var(--muted);margin-top:0.5rem;">
-            Repeated across thousands of examples, ŷ gradually approaches y. Training a network is this loop, run millions of times.
+            Repeated across thousands of examples, \(\hat{y}\) gradually approaches \(y\). Training a network is this loop, run millions of times.
           </p>
         </div>
       </div>
@@ -1547,8 +1609,9 @@ input[type=range]::-webkit-slider-thumb {
     <div class="section-notes-label">Why does this make the model better?</div>
     <ul>
       <li>Each gradient answers: <em>"if I increase this weight, does the loss go up or down?"</em></li>
-      <li>We move the weight a small step in the opposite direction, downhill, scaled by the learning rate α: w_new = w_old − α × ∂L/∂w.</li>
+      <li>We move the weight a small step in the opposite direction, downhill, scaled by the learning rate \(\alpha\): \(w_\text{new} = w_\text{old} - \alpha \times \partial L/\partial w\).</li>
       <li>Done millions of times across thousands of examples, the model's predictions steadily improve.</li>
+      <li><strong>Activation functions</strong> introduce non-linearity so stacked layers can represent complex functions. \(\text{ReLU}(z) = \max(0,z)\) is the dominant choice in deep networks: its derivative is 1 for \(z>0\) (gradient flows freely) and 0 for \(z\leq 0\) (neuron is "dead" for that input). Sigmoid \(\sigma(z) = 1/(1+e^{-z})\) squashes output to \((0,1)\) — useful for probability outputs, but its derivative caps at 0.25 and causes <em>vanishing gradients</em> in deep networks.</li>
     </ul>
   </div>
 </section>
@@ -1819,24 +1882,56 @@ setMode('draw');
 
 // ─── IMAGE FILTER DEMO ────────────────────────────────────
 const kernels = {
-  sobel_x: [[-1,0,1],[-2,0,2],[-1,0,1]],
-  sobel_y: [[-1,-2,-1],[0,0,0],[1,2,1]],
-  sharpen: [[0,-1,0],[-1,5,-1],[0,-1,0]],
-  blur: [[1/9,1/9,1/9],[1/9,1/9,1/9],[1/9,1/9,1/9]],
-  none: null,
-  sobel_both: 'sobel_both'
+  sobel_x:   [[-1,0,1],[-2,0,2],[-1,0,1]],
+  sobel_y:   [[-1,-2,-1],[0,0,0],[1,2,1]],
+  sharpen:   [[0,-1,0],[-1,5,-1],[0,-1,0]],
+  blur:      [[1/16,2/16,1/16],[2/16,4/16,2/16],[1/16,2/16,1/16]],
+  sobel_both:'sobel_both',
+  erosion:   'morphology_erode',
+  dilation:  'morphology_dilate'
 };
 
 const filterNames = {
-  sobel_x: 'Sobel X (vertical edges)',
-  sobel_y: 'Sobel Y (horizontal edges)',
-  sobel_both: 'Sobel combined',
-  sharpen: 'Sharpen',
-  blur: 'Blur',
-  none: 'Original'
+  sobel_x:   'Sobel X (vertical edges)',
+  sobel_y:   'Sobel Y (horizontal edges)',
+  sobel_both:'Sobel combined',
+  sharpen:   'Sharpen',
+  blur:      'Gaussian blur',
+  erosion:   'Erosion',
+  dilation:  'Dilation'
+};
+
+const filterDescriptions = {
+  sobel_x:   '<strong>Sobel X</strong> detects <em>vertical</em> edges by approximating the horizontal gradient \\(\\partial I/\\partial x\\). Bright pixels mark a strong left-to-right change in brightness.',
+  sobel_y:   '<strong>Sobel Y</strong> detects <em>horizontal</em> edges by approximating the vertical gradient \\(\\partial I/\\partial y\\). Bright pixels mark a strong top-to-bottom change.',
+  sobel_both:'<strong>Sobel combined</strong> — magnitude \\(\\sqrt{G_x^2 + G_y^2}\\) at each pixel. Both edge directions are captured, giving a complete edge map regardless of orientation.',
+  sharpen:   '<strong>Sharpen</strong> amplifies high-frequency detail. The centre weight (5) boosts the pixel; the \\(-1\\) neighbours subtract the local average, making edges pop. Equivalent to adding the image\'s Laplacian to itself.',
+  blur:      '<strong>Gaussian blur</strong> smooths the image with a bell-shaped \\(3\\times3\\) kernel. Pixels closer to the centre contribute more than distant ones; reduces noise while preserving low-frequency structure.',
+  erosion:   '<strong>Erosion</strong> (morphological): the input has <em>salt noise</em> (random white dots) added. Erosion replaces each pixel with the <em>minimum</em> of its \\(3\\times3\\) neighbourhood — \\(E[i,j] = \\min_{(m,n)} I[i{+}m,j{+}n]\\) — instantly eliminating isolated bright specks while shrinking bright region edges slightly.',
+  dilation:  '<strong>Dilation</strong> (morphological): the input has <em>pepper noise</em> (random black dots) added. Dilation replaces each pixel with the <em>maximum</em> of its \\(3\\times3\\) neighbourhood — \\(D[i,j] = \\max_{(m,n)} I[i{+}m,j{+}n]\\) — filling isolated dark holes while expanding bright region edges slightly.'
 };
 
 let demoImage = null;
+let saltNoisyImage = null;
+let pepperNoisyImage = null;
+
+function createNoisyImage(noiseType) {
+  if (!demoImage) demoImage = createDemoImage();
+  const canvas = document.createElement('canvas');
+  canvas.width = 220; canvas.height = 180;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(demoImage, 0, 0, 220, 180);
+  const imageData = ctx.getImageData(0, 0, 220, 180);
+  const data = imageData.data;
+  let seed = 12345;
+  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0x100000000; };
+  const noiseVal = noiseType === 'salt' ? 255 : 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (rand() < 0.06) { data[i] = data[i+1] = data[i+2] = noiseVal; }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
 
 function createDemoImage() {
   // Create a simple synthetic image with clear edges
@@ -1870,17 +1965,19 @@ function createDemoImage() {
   return canvas;
 }
 
-function applyKernel(imageData, kernel, w, h) {
+function applyKernel(imageData, kernel, w, h, bias=128) {
   const src = imageData.data;
   const out = new Uint8ClampedArray(src.length);
+  const ksize = kernel.length;
+  const koff = Math.floor(ksize / 2);
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let r = 0, g = 0, b = 0;
-      for (let ky = 0; ky < 3; ky++) {
-        for (let kx = 0; kx < 3; kx++) {
-          const px = Math.min(w-1, Math.max(0, x + kx - 1));
-          const py = Math.min(h-1, Math.max(0, y + ky - 1));
+      for (let ky = 0; ky < ksize; ky++) {
+        for (let kx = 0; kx < ksize; kx++) {
+          const px = Math.min(w-1, Math.max(0, x + kx - koff));
+          const py = Math.min(h-1, Math.max(0, y + ky - koff));
           const idx = (py * w + px) * 4;
           const k = kernel[ky][kx];
           r += src[idx] * k;
@@ -1889,31 +1986,71 @@ function applyKernel(imageData, kernel, w, h) {
         }
       }
       const i = (y * w + x) * 4;
-      out[i] = Math.min(255, Math.max(0, r + 128));
-      out[i+1] = Math.min(255, Math.max(0, g + 128));
-      out[i+2] = Math.min(255, Math.max(0, b + 128));
+      out[i] = Math.min(255, Math.max(0, r + bias));
+      out[i+1] = Math.min(255, Math.max(0, g + bias));
+      out[i+2] = Math.min(255, Math.max(0, b + bias));
       out[i+3] = 255;
     }
   }
   return new ImageData(out, w, h);
 }
 
-function applySobelBoth(imageData, w, h) {
+function applyMorphology(imageData, w, h, op) {
   const src = imageData.data;
+  const out = new Uint8ClampedArray(src.length);
+  const isErode = (op === 'erode');
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = isErode ? 255 : 0, gv = isErode ? 255 : 0, bv = isErode ? 255 : 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const px = Math.min(w-1, Math.max(0, x+kx));
+          const py = Math.min(h-1, Math.max(0, y+ky));
+          const idx = (py*w+px)*4;
+          if (isErode) {
+            rv = Math.min(rv, src[idx]);
+            gv = Math.min(gv, src[idx+1]);
+            bv = Math.min(bv, src[idx+2]);
+          } else {
+            rv = Math.max(rv, src[idx]);
+            gv = Math.max(gv, src[idx+1]);
+            bv = Math.max(bv, src[idx+2]);
+          }
+        }
+      }
+      const i = (y*w+x)*4;
+      out[i]=rv; out[i+1]=gv; out[i+2]=bv; out[i+3]=255;
+    }
+  }
+  return new ImageData(out, w, h);
+}
+
+function toGrayscale(imageData) {
+  const d = imageData.data, out = new Uint8ClampedArray(d.length);
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = Math.round(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
+    out[i] = out[i+1] = out[i+2] = lum;
+    out[i+3] = 255;
+  }
+  return new ImageData(out, imageData.width, imageData.height);
+}
+
+function applySobelBoth(imageData, w, h) {
+  const src = imageData.data; // expects grayscale input (R=G=B)
   const out = new Uint8ClampedArray(src.length);
   const gx = kernels.sobel_x;
   const gy = kernels.sobel_y;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      let rx=0,gxv=0,bx=0,ry=0,gyv=0,by=0;
+      let rx = 0, ry = 0;
       for (let ky = 0; ky < 3; ky++) {
         for (let kx = 0; kx < 3; kx++) {
           const px = Math.min(w-1, Math.max(0, x+kx-1));
           const py = Math.min(h-1, Math.max(0, y+ky-1));
-          const idx = (py*w+px)*4;
-          rx += src[idx]*gx[ky][kx];
-          ry += src[idx]*gy[ky][kx];
+          const lum = src[(py*w+px)*4];
+          rx += lum * gx[ky][kx];
+          ry += lum * gy[ky][kx];
         }
       }
       const mag = Math.min(255, Math.sqrt(rx*rx + ry*ry));
@@ -1930,52 +2067,113 @@ function applyFilter(type, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('filter-name-label').textContent = filterNames[type];
 
+  const descEl = document.getElementById('filter-description');
+  if (descEl) {
+    descEl.innerHTML = filterDescriptions[type] || '';
+    if (window.renderMathInElement) renderMathInElement(descEl, {
+      delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],
+      throwOnError:false
+    });
+  }
+
   const origCanvas = document.getElementById('img-canvas-original');
   const filtCanvas = document.getElementById('img-canvas-filtered');
   const ctx1 = origCanvas.getContext('2d');
   const ctx2 = filtCanvas.getContext('2d');
 
-  if (!demoImage) {
-    demoImage = createDemoImage();
+  if (!demoImage) demoImage = createDemoImage();
+
+  const origLabel = document.getElementById('orig-label');
+  let sourceImage = demoImage;
+  if (type === 'erosion') {
+    if (!saltNoisyImage) saltNoisyImage = createNoisyImage('salt');
+    sourceImage = saltNoisyImage;
+    if (origLabel) origLabel.textContent = 'Input (salt noise)';
+  } else if (type === 'dilation') {
+    if (!pepperNoisyImage) pepperNoisyImage = createNoisyImage('pepper');
+    sourceImage = pepperNoisyImage;
+    if (origLabel) origLabel.textContent = 'Input (pepper noise)';
+  } else {
+    if (origLabel) origLabel.textContent = 'Original';
   }
 
-  ctx1.drawImage(demoImage, 0, 0, 220, 180);
-
+  ctx1.drawImage(sourceImage, 0, 0, 220, 180);
   const imageData = ctx1.getImageData(0, 0, 220, 180);
+  const isSobel = type === 'sobel_x' || type === 'sobel_y' || type === 'sobel_both';
+  const filterInput = isSobel ? toGrayscale(imageData) : imageData;
 
-  if (type === 'none') {
-    ctx2.putImageData(imageData, 0, 0);
-  } else if (type === 'sobel_both') {
-    ctx2.putImageData(applySobelBoth(imageData, 220, 180), 0, 0);
+  if (type === 'sobel_both') {
+    ctx2.putImageData(applySobelBoth(filterInput, 220, 180), 0, 0);
+  } else if (type === 'erosion') {
+    ctx2.putImageData(applyMorphology(imageData, 220, 180, 'erode'), 0, 0);
+  } else if (type === 'dilation') {
+    ctx2.putImageData(applyMorphology(imageData, 220, 180, 'dilate'), 0, 0);
+  } else if (type === 'blur' || type === 'sharpen') {
+    ctx2.putImageData(applyKernel(imageData, kernels[type], 220, 180, 0), 0, 0);
   } else {
-    ctx2.putImageData(applyKernel(imageData, kernels[type], 220, 180), 0, 0);
+    ctx2.putImageData(applyKernel(filterInput, kernels[type], 220, 180), 0, 0);
   }
 }
 
 // ─── CUSTOM KERNEL DESIGNER (bridge into Part 3) ─────
+let customKernelSize = 3;
 let customKernel = [[-1,0,1],[-2,0,2],[-1,0,1]];
+
+function cellPx(s) { return s <= 3 ? 52 : s <= 5 ? 42 : 34; }
+
+function updateSizeBtns() {
+  document.querySelectorAll('.size-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.size) === customKernelSize);
+  });
+}
 
 function buildCustomKernelGrid() {
   const grid = document.getElementById('custom-kernel-grid');
   if (!grid) return;
+  const px = cellPx(customKernelSize);
+  grid.style.gridTemplateColumns = `repeat(${customKernelSize}, ${px}px)`;
   grid.innerHTML = '';
-  for (let m = 0; m < 3; m++) for (let n = 0; n < 3; n++) {
-    const inp = document.createElement('input');
-    inp.className = 'working-cell';
-    inp.type = 'number';
-    inp.step = 'any';
-    inp.value = customKernel[m][n];
-    inp.oninput = () => {
-      const v = parseFloat(inp.value);
-      customKernel[m][n] = isNaN(v) ? 0 : v;
-      renderCustomFilter();
-    };
-    grid.appendChild(inp);
+  for (let m = 0; m < customKernelSize; m++) {
+    for (let n = 0; n < customKernelSize; n++) {
+      const inp = document.createElement('input');
+      inp.className = 'working-cell';
+      inp.type = 'number';
+      inp.step = 'any';
+      inp.style.width = px + 'px';
+      inp.style.height = Math.round(px * 0.72) + 'px';
+      inp.style.fontSize = px < 42 ? '0.65rem' : '0.8rem';
+      inp.value = customKernel[m][n];
+      inp.oninput = () => {
+        const v = parseFloat(inp.value);
+        customKernel[m][n] = isNaN(v) ? 0 : v;
+        renderCustomFilter();
+      };
+      grid.appendChild(inp);
+    }
   }
 }
 
-function setCustomKernel(k) {
+function setCustomKernel(k, size) {
+  if (size !== undefined) customKernelSize = size;
   customKernel = k.map(row => [...row]);
+  buildCustomKernelGrid();
+  renderCustomFilter();
+  updateSizeBtns();
+}
+
+function setCustomKernelSize(s) {
+  customKernelSize = s;
+  const mid = Math.floor(s / 2);
+  customKernel = Array.from({length: s}, (_, m) =>
+    Array.from({length: s}, (_, n) => (m === mid && n === mid) ? 1 : 0)
+  );
+  buildCustomKernelGrid();
+  renderCustomFilter();
+  updateSizeBtns();
+}
+
+function setCustomKernelZeros() {
+  customKernel = Array.from({length: customKernelSize}, () => Array(customKernelSize).fill(0));
   buildCustomKernelGrid();
   renderCustomFilter();
 }
@@ -1991,11 +2189,94 @@ function renderCustomFilter() {
 }
 
 // Init filter demo
+// ─── ACTIVATION FUNCTION EXPLORER ────────────────────────
+function drawActivationPlot(canvasId, type, currentZ) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { l: 32, r: 12, t: 12, b: 28 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const zMin = -4, zMax = 4;
+  const yMin = type === 'relu' ? -0.6 : -0.08;
+  const yMax = type === 'relu' ? 4.6 : 1.08;
+  const toX = z => pad.l + (z - zMin) / (zMax - zMin) * pw;
+  const toY = y => pad.t + ph - (y - yMin) / (yMax - yMin) * ph;
+  const fn = type === 'relu' ? z => Math.max(0, z) : z => 1 / (1 + Math.exp(-z));
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // grid lines
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 1;
+  const yTicks = type === 'relu' ? [0, 1, 2, 3, 4] : [0, 0.25, 0.5, 0.75, 1];
+  yTicks.forEach(v => {
+    ctx.beginPath(); ctx.moveTo(pad.l, toY(v)); ctx.lineTo(W - pad.r, toY(v)); ctx.stroke();
+  });
+
+  // axes
+  ctx.strokeStyle = '#999';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(toX(zMin), toY(0)); ctx.lineTo(toX(zMax), toY(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(toX(0), toY(yMin)); ctx.lineTo(toX(0), toY(yMax)); ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle = '#666';
+  ctx.font = '10px DM Mono, monospace';
+  ctx.textAlign = 'center';
+  [-4, -2, 0, 2, 4].forEach(v => ctx.fillText(v, toX(v), toY(0) + 16));
+  ctx.textAlign = 'right';
+  yTicks.forEach(v => ctx.fillText(v % 1 === 0 ? v : v.toFixed(2), pad.l - 4, toY(v) + 3));
+
+  // curve
+  ctx.strokeStyle = '#CC0011';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let px = 0; px <= pw; px++) {
+    const z = zMin + (px / pw) * (zMax - zMin);
+    const cx = pad.l + px, cy = toY(fn(z));
+    px === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+  }
+  ctx.stroke();
+
+  // derivative shading: fill under/above zero for ReLU dead zone
+  if (type === 'relu') {
+    ctx.fillStyle = 'rgba(204,0,17,0.06)';
+    ctx.fillRect(pad.l, toY(0), toX(0) - pad.l, toY(yMin) - toY(0));
+  }
+
+  // current-z dot
+  const dz = Math.max(zMin, Math.min(zMax, currentZ));
+  ctx.fillStyle = '#0e7a34';
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(toX(dz), toY(fn(dz)), 6, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+}
+
+function updateActDemo(z) {
+  document.getElementById('act-z-display').textContent = z.toFixed(1);
+  const relu = Math.max(0, z);
+  const reluDeriv = z > 0 ? 1 : 0;
+  document.getElementById('relu-out').textContent = relu.toFixed(2);
+  document.getElementById('relu-deriv').textContent = reluDeriv;
+  const sig = 1 / (1 + Math.exp(-z));
+  const sigDeriv = sig * (1 - sig);
+  document.getElementById('sig-out').textContent = sig.toFixed(3);
+  document.getElementById('sig-deriv').textContent = sigDeriv.toFixed(3);
+  drawActivationPlot('relu-canvas', 'relu', z);
+  drawActivationPlot('sigmoid-canvas', 'sigmoid', z);
+}
+
 window.addEventListener('load', () => {
   applyFilter('sobel_x', null);
   document.querySelector('.filter-btn').classList.add('active');
   buildCustomKernelGrid();
   renderCustomFilter();
+  updateActDemo(1.0);
 });
 
 // ─── CONVOLUTION STEP-THROUGH ─────────────────────────────
@@ -2045,13 +2326,14 @@ function buildKernelMatrix(highlightM, highlightN) {
 function renderFullImageGrid() {
   if (!document.getElementById('full-image-grid')) return;
   const [pi, pj] = convPosition < 9 ? ALL_POSITIONS[convPosition] : [-99,-99];
+  const inGuided = convPosition === 0;
   let html = '';
   for (let r = 0; r < 5; r++) {
     html += '<div class="matrix-row">';
     for (let c = 0; c < 5; c++) {
       const inPatch = r >= pi && r < pi+3 && c >= pj && c < pj+3;
       const kr = r - pi, kc = c - pj;
-      const isHighlighted = inPatch && convSubStep < 9 &&
+      const isHighlighted = inPatch && inGuided && convSubStep < 9 &&
         kr === Math.floor(convSubStep/3) && kc === convSubStep%3;
       let cls = 'matrix-val';
       if (isHighlighted) cls += ' highlighted';
@@ -2096,21 +2378,27 @@ function renderFullOutputGrid() {
 }
 
 function renderCurrentPatch() {
-  if (!document.getElementById('conv-image-matrix')) return;
   const [pi, pj] = ALL_POSITIONS[Math.min(convPosition, 8)];
-  const hm = convSubStep < 9 ? Math.floor(convSubStep/3) : -1;
-  const hn = convSubStep < 9 ? convSubStep%3 : -1;
-  let html = '';
-  for (let r = 0; r < 3; r++) {
-    html += '<div class="matrix-row">';
-    for (let c = 0; c < 3; c++) {
-      let cls = 'matrix-val';
-      if (r === hm && c === hn) cls += ' highlighted';
-      html += `<div class="${cls}">${IMAGE_5[pi+r][pj+c]}</div>`;
+  // Only highlight a specific sub-cell during the guided walkthrough of position 0
+  const inGuided = convPosition === 0;
+  const hm = (inGuided && convSubStep < 9) ? Math.floor(convSubStep/3) : -1;
+  const hn = (inGuided && convSubStep < 9) ? convSubStep%3 : -1;
+
+  // Compact patch matrix (optional element — not always in DOM)
+  const imEl = document.getElementById('conv-image-matrix');
+  if (imEl) {
+    let html = '';
+    for (let r = 0; r < 3; r++) {
+      html += '<div class="matrix-row">';
+      for (let c = 0; c < 3; c++) {
+        let cls = 'matrix-val';
+        if (r === hm && c === hn) cls += ' highlighted';
+        html += `<div class="${cls}">${IMAGE_5[pi+r][pj+c]}</div>`;
+      }
+      html += '</div>';
     }
-    html += '</div>';
+    imEl.innerHTML = html;
   }
-  document.getElementById('conv-image-matrix').innerHTML = html;
 
   const kmEl = document.getElementById('conv-kernel-matrix');
   if (kmEl) kmEl.innerHTML = buildKernelMatrix(hm, hn);
@@ -2149,10 +2437,10 @@ function convStep() {
     `;
   }
 
-  convSubStep++;
   renderCurrentPatch();
   renderFullImageGrid();
-  document.getElementById('conv-step-counter').textContent = `Position 1/9: guided · step ${convSubStep}/9`;
+  document.getElementById('conv-step-counter').textContent = `Position 1/9: guided · step ${convSubStep+1}/9`;
+  convSubStep++;
 
   if (convSubStep === 9) {
     convRevealed[pi][pj] = true;
